@@ -2,132 +2,113 @@ import pygame
 import random
 import math
 
+# 초기화
 pygame.init()
 
-WIDTH, HEIGHT = 900, 600
+WIDTH, HEIGHT = 1000, 700
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Super Fancy Particle Playground")
+pygame.display.set_caption("Ultimate Neon Fireworks - Fixed Background")
 
 clock = pygame.time.Clock()
 
-particles = []
+# 잔상을 위한 별도의 Surface (RGBA 지원)
+# 이 표면이 파티클의 궤적을 기억합니다.
+trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
-# --- 글로우(빛무리) 효과를 위한 표면(Surface) 캐싱 ---
-# 매 프레임마다 그라데이션을 그리면 느려지므로, 한 번 만든 빛무리는 저장해두고 재사용합니다.
+particles = []
 glow_cache = {}
 
 def get_glow_surface(radius, color):
     radius = int(radius)
-    if radius <= 0:
-        return None
-        
+    if radius <= 0: return None
     key = (radius, color)
     if key not in glow_cache:
-        # 투명도를 지원하는 빈 Surface 생성
         surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-        # 여러 겹의 반투명한 원을 그려 그라데이션(빛) 효과 생성
-        for r in range(radius, 0, -1):
-            alpha = int(255 * ((radius - r) / radius) ** 1.5) # 부드러운 퍼짐
+        for r in range(radius, 0, -2):
+            alpha = int(150 * ((radius - r) / radius) ** 2)
             pygame.draw.circle(surf, (*color, alpha), (radius, radius), r)
         glow_cache[key] = surf
-        
     return glow_cache[key]
 
 class Particle:
-    def __init__(self, x, y):
+    def __init__(self, x, y, is_explosion=False):
         self.x = x
         self.y = y
-
-        # 폭죽처럼 사방으로 퍼지도록 각도와 속도 설정
+        self.hue = random.random()
+        
         angle = random.uniform(0, math.pi * 2)
-        speed = random.uniform(3, 10) # 속도를 높여 더 화려하게
-
+        speed = random.uniform(2, 12) if is_explosion else random.uniform(1, 5)
+        
         self.vx = math.cos(angle) * speed
         self.vy = math.sin(angle) * speed
-
-        self.max_life = random.randint(40, 100)
+        
+        self.max_life = random.randint(30, 80)
         self.life = self.max_life
-        self.base_size = random.uniform(10, 25) # 크기도 조금 더 크게
-
-        # 화려한 네온 컬러 팔레트 (시안, 마젠타, 옐로우, 라임 등)
-        self.color = random.choice([
-            (0, 255, 255),   # Cyan
-            (255, 0, 255),   # Magenta
-            (150, 0, 255),   # Purple
-            (0, 150, 255),   # Deep Blue
-            (255, 255, 0),   # Yellow
-            (50, 255, 50)    # Lime Green
-        ])
+        self.base_size = random.uniform(8, 20)
 
     def update(self):
+        self.vx *= 0.96
+        self.vy *= 0.96
+        self.vy += 0.12 
         self.x += self.vx
         self.y += self.vy
-
-        # 물리 효과: 마찰력(Friction)과 중력(Gravity)
-        self.vx *= 0.94  # 공기 저항 (속도가 점점 줄어듦)
-        self.vy *= 0.94
-        self.vy += 0.15  # 중력 (아래로 떨어짐)
-
+        self.hue += 0.01
+        if self.hue > 1.0: self.hue = 0
         self.life -= 1
 
+    def get_current_color(self):
+        c = pygame.Color(0)
+        c.hsva = (self.hue * 360, 90, 100, 100)
+        return (c.r, c.g, c.b)
+
     def draw(self, surf):
-        if self.life > 0:
-            # 수명에 따라 크기가 점점 줄어드는 비율 계산
-            ratio = self.life / self.max_life
-            current_size = self.base_size * ratio
+        ratio = self.life / self.max_life
+        size = self.base_size * ratio * random.uniform(0.7, 1.3)
+        color = self.get_current_color()
+        
+        glow_surf = get_glow_surface(size, color)
+        if glow_surf:
+            rect = glow_surf.get_rect(center=(int(self.x), int(self.y)))
+            # 잔상 레이어(trail_surf)에 빛무리를 그립니다.
+            surf.blit(glow_surf, rect, special_flags=pygame.BLEND_RGBA_ADD)
             
-            glow_surf = get_glow_surface(current_size, self.color)
-            if glow_surf:
-                # 중심점 위치 조정 후 화면에 그리기
-                # BLEND_RGB_ADD 플래그를 사용하여 색상이 겹칠수록 밝아지는 빛 효과 연출
-                rect = glow_surf.get_rect(center=(int(self.x), int(self.y)))
-                surf.blit(glow_surf, rect, special_flags=pygame.BLEND_RGB_ADD)
-                
-            # 중심부에 밝은 흰색 코어를 그려 더 빛나 보이게 함
-            core_size = max(1, int(current_size * 0.2))
-            pygame.draw.circle(surf, (255, 255, 255), (int(self.x), int(self.y)), core_size)
-
-    def alive(self):
-        return self.life > 0
-
-def draw_background(surface, t):
-    # 파티클의 네온 빛이 돋보이도록 어둡고 몽환적인 배경 설정
-    surface.fill((10, 12, 20))
-    
-    # 은은하게 움직이는 배경 선 (선택 사항)
-    for y in range(0, HEIGHT, 40):
-        offset = math.sin(y * 0.02 + t) * 20
-        pygame.draw.line(surface, (20, 25, 35), (0, y + offset), (WIDTH, y + offset), 1)
+            # 메인 화면(screen)에는 파티클의 중심(코어)을 그려서 선명함을 유지합니다.
+            core_size = max(1, int(size * 0.3))
+            pygame.draw.circle(screen, (255, 255, 255), (int(self.x), int(self.y)), core_size)
 
 running = True
-time = 0
-
 while running:
+    # 1. 배경색 고정 (매 프레임 완전히 새로 칠함)
+    screen.fill((10, 10, 25))
+
+    # 2. 잔상 서서히 지우기 (배경색에는 영향을 주지 않고 trail_surf의 알파값만 깎음)
+    # 마지막 숫자가 클수록 잔상이 짧아집니다 (현재 25)
+    fade_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fade_surf.fill((0, 0, 0, 25)) 
+    trail_surf.blit(fade_surf, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            for _ in range(50):
+                particles.append(Particle(*event.pos, is_explosion=True))
 
-    mouse_x, mouse_y = pygame.mouse.get_pos()
-    buttons = pygame.mouse.get_pressed()
+    if pygame.mouse.get_pressed()[0]:
+        mx, my = pygame.mouse.get_pos()
+        for _ in range(5):
+            particles.append(Particle(mx, my))
 
-    # 마우스를 클릭하고 있을 때 파티클 대량 생성
-    if buttons[0]:
-        for _ in range(12): # 생성 개수를 늘림
-            # 마우스 위치에서 약간 분산시켜 생성
-            offset_x = random.uniform(-5, 5)
-            offset_y = random.uniform(-5, 5)
-            particles.append(Particle(mouse_x + offset_x, mouse_y + offset_y))
-
-    time += 0.05
-
-    draw_background(screen, time)
-
-    for p in particles:
+    # 3. 파티클 업데이트 및 잔상 레이어에 그리기
+    for p in particles[:]:
         p.update()
-        p.draw(screen)
+        if p.life <= 0:
+            particles.remove(p)
+        else:
+            p.draw(trail_surf)
 
-    # 살아있는 파티클만 리스트에 남김
-    particles = [p for p in particles if p.alive()]
+    # 4. 최종적으로 잔상 레이어를 화면에 덮어씌움
+    screen.blit(trail_surf, (0, 0))
 
     pygame.display.flip()
     clock.tick(60)
