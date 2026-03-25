@@ -11,9 +11,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
                 running = False
-screen.fill(WHITE)
-pygame.draw.circle(screen, BLUE, (400, 300), 50)
-pygame.display.flip()
-clock.tick(60)
+    screen.fill(WHITE)
+    pygame.draw.circle(screen, BLUE, (400, 300), 50)
+    pygame.display.flip()
+    clock.tick(60)
 pygame.quit()
 sys.exit()
