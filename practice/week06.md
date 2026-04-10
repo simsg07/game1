@@ -2,8 +2,7 @@
 
 ## 사용한 에셋
 - 이미지:
-  - `sheet.png` (직접 제작한 스프라이트 시트)
-  - 구성: 얼음 타일, 벽, 바위, 포탈(닫힘/열림), 가시
+  - ice.png, key.png, portal_closed.png, portal_open.png, rock.png, spike.png, wall.png
 - 사운드:
   - 사용하지 않음(사용 예정)
 

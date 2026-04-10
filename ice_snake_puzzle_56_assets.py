@@ -4,12 +4,11 @@ import pygame
 
 pygame.init()
 
-# ---------------------------
-# 기본 설정
-# ---------------------------
 CELL = 64
+SPRITE_SIZE = 56
 COLS, ROWS = 16, 12
 HUD_HEIGHT = 64
+BOTTOM_HINT_HEIGHT = 44
 WIDTH = COLS * CELL
 HEIGHT = ROWS * CELL
 SCREEN_HEIGHT = HEIGHT + HUD_HEIGHT
@@ -24,7 +23,6 @@ PLAYER_HEAD = (40, 120, 255)
 PLAYER_BODY = (120, 185, 255)
 WALL = (50, 50, 50)
 ROCK = (120, 120, 120)
-KEY = (255, 215, 0)
 EXIT_CLOSED = (120, 140, 220)
 EXIT_OPEN = (70, 200, 120)
 TEXT = (250, 250, 250)
@@ -32,11 +30,12 @@ RED = (220, 70, 70)
 GREEN = (70, 220, 120)
 BLUE = (90, 170, 255)
 PURPLE = (140, 110, 220)
+KEY_GOLD = (245, 200, 40)
+KEY_SHADOW = (170, 120, 20)
 
 screen = pygame.display.set_mode((WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Ice Snake Puzzle")
 clock = pygame.time.Clock()
-
 
 def get_korean_font(size):
     candidates = ["malgungothic", "applegothic", "nanumgothic", "notosanscjk", "arial"]
@@ -46,67 +45,38 @@ def get_korean_font(size):
             return font
     return pygame.font.SysFont(None, size)
 
-
 font_sm = get_korean_font(22)
 font_md = get_korean_font(34)
 font_lg = get_korean_font(54)
 
-# ---------------------------
-# 스프라이트 시트
-# sprites/sheet.png
-# ---------------------------
 SPRITES_DIR = os.path.join(os.path.dirname(__file__), "sprites")
-SHEET_PATH = os.path.join(SPRITES_DIR, "sheet.png")
-
-# 현재 시트 기준 보정 좌표
-SPRITE_RECTS = {
-    "ice": (52, 78, 300, 224),
-    "wall": (438, 82, 356, 212),
-    "rock": (420, 338, 332, 178),
-    "exit_closed": (54, 564, 244, 248),
-    "exit_open": (664, 560, 276, 256),
-    "spike": (978, 548, 136, 280),
+ASSET_FILES = {
+    "ice": "ice.png",
+    "wall": "wall.png",
+    "rock": "rock.png",
+    "portal_closed": "portal_closed.png",
+    "portal_open": "portal_open.png",
+    "spike": "spike.png",
+    "key": "key.png",
 }
 
-# 타일 내부에 살짝 작게 배치할 이미지들
-SPRITE_SCALE = {
-    "ice": 1.00,
-    "wall": 1.00,
-    "rock": 0.82,
-    "exit_closed": 0.84,
-    "exit_open": 0.84,
-    "spike": 0.82,
-}
-
-
-def crop_sprite(sheet, rect, size=(CELL, CELL)):
-    x, y, w, h = rect
-    surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    surf.blit(sheet, (0, 0), pygame.Rect(x, y, w, h))
-    return pygame.transform.smoothscale(surf, size)
-
-
-def load_sprites_from_sheet():
-    sprites = {key: None for key in SPRITE_RECTS.keys()}
-
-    if not os.path.exists(SHEET_PATH):
-        return sprites
-
+def safe_load_image(path, size=(SPRITE_SIZE, SPRITE_SIZE)):
     try:
-        sheet = pygame.image.load(SHEET_PATH).convert_alpha()
-        for key, rect in SPRITE_RECTS.items():
-            sprites[key] = crop_sprite(sheet, rect)
+        img = pygame.image.load(path).convert_alpha()
+        if img.get_size() != size:
+            img = pygame.transform.smoothscale(img, size)
+        return img
     except Exception:
-        pass
+        return None
 
-    return sprites
+def load_assets():
+    assets = {}
+    for key, filename in ASSET_FILES.items():
+        assets[key] = safe_load_image(os.path.join(SPRITES_DIR, filename))
+    return assets
 
+ASSETS = load_assets()
 
-SPRITES = load_sprites_from_sheet()
-
-# ---------------------------
-# 튜토리얼
-# ---------------------------
 TUTORIAL_LEVELS = [
     {
         "name": "튜토리얼 1",
@@ -164,306 +134,344 @@ TUTORIAL_LEVELS = [
     },
 ]
 
-# ---------------------------
-# 20 스테이지
-# ---------------------------
 LEVELS = [
+    # 1
     [
         "################",
-        "#......E.......#",
-        "#.####.###.###.#",
-        "#..S........S..#",
-        "#..R..#####.R..#",
+        "#........R.....#",
+        "#.........E....#",
         "#..............#",
-        "#......P......#",
         "#..............#",
-        "#..R.#####..R..#",
-        "#..S........S..#",
-        "#.###.###.###K.#",
-        "################",
-    ],
-    [
-        "################",
-        "#..E....#......#",
-        "#.......#......#",
-        "#.......#......#",
-        "#..#####.#.....#",
-        "#......P.#.....#",
-        "#........#.....#",
-        "#........#.....#",
-        "#....R...#.....#",
-        "#........#..K..#",
+        "#......P.......#",
+        "#..............#",
+        "#..............#",
+        "#..R...........#",
+        "#......RK......#",
         "#..............#",
         "################",
     ],
+
+    # 2
     [
         "################",
-        "#.....E........#",
-        "#.######.#####.#",
+        "#.....R.R......#",
+        "#.........R...E#",
+        "#........R.....#",
+        "#....R.........#",
+        "#...RP.........#",
+        "#..........R...#",
+        "#..R...........#",
+        "#......R.......#",
+        "#..K...........#",
+        "#.....R........#",
+        "################",
+    ],
+
+    # 3
+    [
+        "################",
+        "#..............#",
+        "#......R....E..#",
+        "#..............#",
+        "#..............#",
+        "#......P.......#",
+        "#..............#",
+        "#..............#",
+        "#..............#",
+        "#.......K......#",
+        "#..............#",
+        "################",
+    ],
+
+    # 4
+    [
+        "################",
+        "#..............#",
+        "#...........E..#",
         "#..............#",
         "#....R.........#",
-        "#..............#",
-        "#..P...........#",
+        "#......P.......#",
         "#..............#",
         "#.........R....#",
         "#..............#",
-        "#......K.......#",
-        "################",
-    ],
-    [
-        "################",
-        "#....E....#....#",
-        "#.........#....#",
-        "#..#####..#....#",
-        "#.........#....#",
-        "#....P....#....#",
-        "#.........#....#",
-        "#..R......#....#",
-        "#.........#....#",
-        "#......K.......#",
+        "#..K...........#",
         "#..............#",
         "################",
     ],
+
+    # 5
     [
         "################",
-        "#......#......E#",
-        "#......#.......#",
-        "#..P...#..R....#",
+        "#..............#",
+        "#....R......E..#",
+        "#..............#",
+        "#..............#",
+        "#......P.......#",
+        "#..............#",
+        "#..............#",
+        "#......R.......#",
+        "#.......K......#",
+        "#..............#",
+        "################",
+    ],
+
+    # 6
+    [
+        "################",
+        "#..............#",
+        "#...........E..#",
+        "#....####......#",
+        "#..............#",
+        "#......P.......#",
+        "#..............#",
         "#......####....#",
         "#..............#",
+        "#..K...........#",
+        "#..............#",
+        "################",
+    ],
+
+    # 7
+    [
+        "################",
+        "#..............#",
+        "#......R....E..#",
+        "#..............#",
         "#....####......#",
-        "#....R.........#",
+        "#......P.......#",
+        "#..............#",
+        "#......####....#",
         "#..............#",
         "#.......K......#",
         "#..............#",
         "################",
     ],
+
+    # 8
     [
         "################",
-        "#..E...........#",
-        "#.#####.#####..#",
+        "#..............#",
+        "#...........E..#",
         "#..............#",
         "#....R.........#",
+        "#......P.......#",
+        "#.........R....#",
+        "#..............#",
+        "#..............#",
+        "#..K...........#",
+        "#..............#",
+        "################",
+    ],
+
+    # 9
+    [
+        "################",
+        "#..............#",
+        "#....####...E..#",
+        "#..............#",
         "#..............#",
         "#......P.......#",
         "#..............#",
-        "#.........R....#",
         "#..............#",
+        "#....####......#",
         "#.......K......#",
+        "#..............#",
         "################",
     ],
+
+    # 10
     [
         "################",
-        "#......E.......#",
-        "#..#######.....#",
         "#..............#",
-        "#....R.........#",
+        "#......R....E..#",
+        "#..............#",
+        "#....####......#",
+        "#......P.......#",
+        "#..............#",
+        "#......####....#",
+        "#..............#",
+        "#..K....R......#",
+        "#..............#",
+        "################",
+    ],
+
+    # 11
+    [
+        "################",
+        "#..............#",
+        "#...........E..#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..P...#.......#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..............#",
+        "#.......K......#",
+        "#..............#",
+        "################",
+    ],
+
+    # 12
+    [
+        "################",
+        "#..............#",
+        "#...........E..#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..P...#.......#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..............#",
+        "#..K...........#",
+        "#..............#",
+        "################",
+    ],
+
+    # 13
+    [
+        "################",
+        "#..............#",
+        "#....R......E..#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..P...#.......#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..............#",
+        "#.......K......#",
+        "#..............#",
+        "################",
+    ],
+
+    # 14
+    [
+        "################",
+        "#..............#",
+        "#...........E..#",
+        "#....####......#",
         "#..............#",
         "#..P...........#",
         "#..............#",
-        "#.........R....#",
-        "#.....#######..#",
-        "#......K.......#",
+        "#......R.......#",
+        "#..............#",
+        "#..K....####...#",
+        "#..............#",
         "################",
     ],
+
+    # 15
     [
         "################",
-        "#....E.........#",
-        "#....#.#######.#",
-        "#....#.........#",
-        "#....#..R......#",
-        "#..P.#.........#",
-        "#....#.........#",
-        "#....#####.###.#",
-        "#............#.#",
-        "#......K.....#.#",
-        "#............#.#",
+        "#..............#",
+        "#......R....E..#",
+        "#....####......#",
+        "#..............#",
+        "#..P...........#",
+        "#..............#",
+        "#......R.......#",
+        "#..............#",
+        "#..K....####...#",
+        "#..............#",
         "################",
     ],
+
+    # 16
     [
         "################",
-        "#...........E..#",
-        "#.#######.###..#",
         "#..............#",
-        "#....R....R....#",
+        "#...........E.S#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..P...#.......#",
+        "#......#.......#",
+        "#......#.......#",
         "#..............#",
-        "#....P.........#",
+        "#..K...........#",
         "#..............#",
-        "#....R....R....#",
-        "#..............#",
-        "#......K.......#",
         "################",
     ],
+
+    # 17
     [
         "################",
-        "#..E...........#",
-        "#..#.#########.#",
-        "#..#...........#",
-        "#..#..R........#",
-        "#..#...........#",
-        "#..#....P......#",
-        "#..#...........#",
-        "#..#........R..#",
-        "#..#########.#K#",
-        "#............#.#",
-        "################",
-    ],
-    [
-        "################",
-        "#.....E........#",
-        "#.#####.#####..#",
         "#..............#",
-        "#..R......R....#",
-        "#..............#",
-        "#......P.......#",
-        "#..............#",
-        "#....R......R..#",
+        "#....R......E.S#",
+        "#......#.......#",
+        "#......#.......#",
+        "#..P...#.......#",
+        "#......#.......#",
+        "#......#.......#",
         "#..............#",
         "#.......K......#",
-        "################",
-    ],
-    [
-        "################",
-        "#....E....#....#",
-        "#.........#....#",
-        "#..#####..#....#",
-        "#..R......#....#",
-        "#.........#....#",
-        "#....P....#....#",
-        "#.........#....#",
-        "#......R..#....#",
-        "#.........#..K.#",
         "#..............#",
         "################",
     ],
+
+    # 18
     [
         "################",
-        "#........E.....#",
-        "#..######.###..#",
         "#..............#",
-        "#...R......R...#",
-        "#..............#",
-        "#......P.......#",
-        "#..............#",
-        "#...R......R...#",
-        "#..###.######..#",
-        "#......K.......#",
-        "################",
-    ],
-    [
-        "################",
-        "#..E...........#",
-        "#..#.########..#",
-        "#..#.......R...#",
-        "#..#...........#",
-        "#..#####.###...#",
-        "#......P.......#",
-        "#...###.#####..#",
-        "#...........#..#",
-        "#...R.......#K.#",
-        "#...........#..#",
-        "################",
-    ],
-    [
-        "################",
-        "#......E.......#",
-        "#.###.#####.##.#",
-        "#..............#",
-        "#...R......R...#",
-        "#..............#",
-        "#......P.......#",
-        "#..............#",
-        "#...R......R...#",
-        "#.##.#####.###.#",
-        "#......K.......#",
-        "################",
-    ],
-    [
-        "################",
-        "#....E.........#",
-        "#.#####.#####..#",
-        "#.............S#",
-        "#..R......R....#",
-        "#..............#",
-        "#......P.......#",
-        "#..............#",
-        "#....R......R..#",
-        "#S............K#",
-        "#..#####.#####.#",
-        "################",
-    ],
-    [
-        "################",
-        "#.........E....#",
-        "#..######.###..#",
-        "#..S...........#",
-        "#....R....R....#",
-        "#..............#",
-        "#......P.......#",
-        "#..............#",
-        "#....R....R....#",
-        "#...........S..#",
-        "#..###.######K.#",
-        "################",
-    ],
-    [
-        "################",
-        "#..E...........#",
-        "#..#.########..#",
-        "#..#....S......#",
-        "#..#..R.....R..#",
-        "#..#...........#",
-        "#..#...P.......#",
-        "#..#...........#",
-        "#..#..R.....R..#",
-        "#..#......S..K.#",
-        "#..########.#..#",
-        "################",
-    ],
-    [
-        "################",
         "#...........E..#",
-        "#.#####.#####..#",
+        "#....####......#",
         "#..............#",
-        "#..R..S...S.R..#",
+        "#..P.....S.....#",
         "#..............#",
-        "#......P.......#",
+        "#......R.......#",
         "#..............#",
-        "#..R..S...S.R..#",
+        "#..K....####...#",
         "#..............#",
-        "#.......K......#",
         "################",
     ],
+
+    # 19
     [
         "################",
-        "#......E.......#",
-        "#.####.###.###.#",
-        "#..S........S..#",
-        "#..R..#####.R..#",
         "#..............#",
-        "#......P.......#",
+        "#......R....E..#",
+        "#....####......#",
         "#..............#",
-        "#..R.#####..R..#",
-        "#..S........S..#",
-        "#.###.###.###K.#",
+        "#..P.....S.....#",
+        "#..............#",
+        "#......R.......#",
+        "#..............#",
+        "#..K....####...#",
+        "#..............#",
+        "################",
+    ],
+
+    # 20
+    [
+        "################",
+        "#..............#",
+        "#...........E.S#",
+        "#......#.......#",
+        "#..R...#.......#",
+        "#..P...#.......#",
+        "#......#...R...#",
+        "#......#.......#",
+        "#..............#",
+        "#..K.......S...#",
+        "#..............#",
         "################",
     ],
 ]
-
 
 def grid_to_pixel(pos):
     x, y = pos
     return x * CELL, y * CELL + HUD_HEIGHT
 
-
 def draw_text_center(text, y, font, color):
     surf = font.render(text, True, color)
     screen.blit(surf, (WIDTH // 2 - surf.get_width() // 2, y))
 
-
 def in_bounds(x, y):
     return 0 <= x < COLS and 0 <= y < ROWS
 
+def center_blit(img, px, py):
+    if img is None:
+        return
+    offset = (CELL - SPRITE_SIZE) // 2
+    screen.blit(img, (px + offset, py + offset))
 
 class Level:
     def __init__(self, raw_map):
@@ -488,7 +496,6 @@ class Level:
                     self.exit_pos = (x, y)
                 elif ch == "P":
                     self.start_pos = (x, y)
-
 
 def load_level(idx, mode="stage"):
     if mode == "tutorial":
@@ -522,7 +529,6 @@ def load_level(idx, mode="stage"):
         "state": "playing",
         "message": "",
     }
-
 
 def slide_snake(game, direction):
     if game["state"] != "playing":
@@ -570,40 +576,31 @@ def slide_snake(game, direction):
     if moved:
         game["snake"] = [trail[-1]] + trail[:-1][::-1] + snake
 
-
-# ---------------------------
-# 폴백 드로우
-# ---------------------------
 def draw_ice_fallback(px, py):
     pygame.draw.rect(screen, ICE, (px, py, CELL, CELL))
     pygame.draw.rect(screen, ICE_LINE, (px, py, CELL, CELL), 1)
 
-
 def draw_wall_fallback(px, py):
     pygame.draw.rect(screen, WALL, (px, py, CELL, CELL))
 
-
 def draw_rock_fallback(px, py):
-    pygame.draw.rect(screen, ROCK, (px + 6, py + 6, CELL - 12, CELL - 12), border_radius=10)
+    pygame.draw.rect(screen, ROCK, (px + 8, py + 8, CELL - 16, CELL - 16), border_radius=12)
 
-
-def draw_key_fallback(px, py):
+def draw_key(px, py):
     cx = px + CELL // 2
     cy = py + CELL // 2
 
-    pygame.draw.circle(screen, (245, 200, 40), (cx - 10, cy - 2), 12, 5)
-    pygame.draw.rect(screen, (245, 200, 40), (cx, cy - 5, 22, 10), border_radius=3)
-    pygame.draw.rect(screen, (245, 200, 40), (cx + 14, cy - 5, 4, 16))
-    pygame.draw.rect(screen, (245, 200, 40), (cx + 20, cy - 5, 4, 12))
+    pygame.draw.circle(screen, KEY_GOLD, (cx - 10, cy - 2), 12, 5)
+    pygame.draw.rect(screen, KEY_GOLD, (cx, cy - 5, 22, 10), border_radius=3)
+    pygame.draw.rect(screen, KEY_GOLD, (cx + 14, cy - 5, 4, 16))
+    pygame.draw.rect(screen, KEY_GOLD, (cx + 20, cy - 5, 4, 12))
 
-    pygame.draw.circle(screen, (170, 120, 20), (cx - 10, cy - 2), 12, 2)
-    pygame.draw.rect(screen, (170, 120, 20), (cx, cy - 5, 22, 10), 2, border_radius=3)
-
+    pygame.draw.circle(screen, KEY_SHADOW, (cx - 10, cy - 2), 12, 2)
+    pygame.draw.rect(screen, KEY_SHADOW, (cx, cy - 5, 22, 10), 2, border_radius=3)
 
 def draw_exit_fallback(px, py, opened):
     color = EXIT_OPEN if opened else EXIT_CLOSED
     pygame.draw.rect(screen, color, (px + 6, py + 6, CELL - 12, CELL - 12), border_radius=8)
-
 
 def draw_spike_fallback(px, py):
     points = [
@@ -616,53 +613,24 @@ def draw_spike_fallback(px, py):
     ]
     pygame.draw.polygon(screen, PURPLE, points)
 
-
 def draw_player(px, py, is_head):
     if is_head:
-        pygame.draw.rect(
-            screen,
-            PLAYER_HEAD,
-            (px + 8, py + 8, CELL - 16, CELL - 16),
-            border_radius=8,
-        )
-        pygame.draw.rect(
-            screen,
-            WHITE,
-            (px + 14, py + 14, CELL - 28, CELL - 28),
-            2,
-            border_radius=6,
-        )
+        pygame.draw.rect(screen, PLAYER_HEAD, (px + 10, py + 10, CELL - 20, CELL - 20), border_radius=10)
+        pygame.draw.rect(screen, WHITE, (px + 16, py + 16, CELL - 32, CELL - 32), 2, border_radius=8)
     else:
-        pygame.draw.rect(
-            screen,
-            PLAYER_BODY,
-            (px + 14, py + 14, CELL - 28, CELL - 28),
-            border_radius=8,
-        )
+        pygame.draw.rect(screen, PLAYER_BODY, (px + 18, py + 18, CELL - 36, CELL - 36), border_radius=8)
 
-
-def draw_sprite(name, pos, fallback_func=None, extra=None):
+def draw_asset(name, pos, fallback_func=None, extra=None):
     px, py = grid_to_pixel(pos)
-    img = SPRITES.get(name)
+    img = ASSETS.get(name)
 
     if img is not None:
-        scale = SPRITE_SCALE.get(name, 1.0)
-
-        if scale != 1.0:
-            w = int(CELL * scale)
-            h = int(CELL * scale)
-            scaled = pygame.transform.smoothscale(img, (w, h))
-            offset_x = (CELL - w) // 2
-            offset_y = (CELL - h) // 2
-            screen.blit(scaled, (px + offset_x, py + offset_y))
-        else:
-            screen.blit(img, (px, py))
+        center_blit(img, px, py)
     elif fallback_func:
         if extra is None:
             fallback_func(px, py)
         else:
             fallback_func(px, py, extra)
-
 
 def draw_board(game):
     screen.fill(DARK_GRAY)
@@ -670,32 +638,34 @@ def draw_board(game):
 
     for y in range(ROWS):
         for x in range(COLS):
-            draw_sprite("ice", (x, y), draw_ice_fallback)
+            draw_asset("ice", (x, y), draw_ice_fallback)
 
     for pos in level.walls:
-        draw_sprite("wall", pos, draw_wall_fallback)
+        draw_asset("wall", pos, draw_wall_fallback)
 
     for pos in level.rocks:
-        draw_sprite("rock", pos, draw_rock_fallback)
+        draw_asset("rock", pos, draw_rock_fallback)
 
     for pos in level.spikes:
-        draw_sprite("spike", pos, draw_spike_fallback)
+        draw_asset("spike", pos, draw_spike_fallback)
 
     if level.key_pos is not None:
-        px, py = grid_to_pixel(level.key_pos)
-        draw_key_fallback(px, py)
+        if ASSETS["key"] is not None:
+            draw_asset("key", level.key_pos)
+        else:
+            px, py = grid_to_pixel(level.key_pos)
+            draw_key(px, py)
 
     if game["has_key"]:
-        draw_sprite("exit_open", level.exit_pos, draw_exit_fallback, True)
+        draw_asset("portal_open", level.exit_pos, draw_exit_fallback, True)
     else:
-        draw_sprite("exit_closed", level.exit_pos, draw_exit_fallback, False)
+        draw_asset("portal_closed", level.exit_pos, draw_exit_fallback, False)
 
     snake = game["snake"]
     for seg in reversed(snake):
         px, py = grid_to_pixel(seg)
         draw_player(px, py, seg == snake[0])
 
-    # HUD
     pygame.draw.rect(screen, (15, 15, 20), (0, 0, WIDTH, HUD_HEIGHT))
     pygame.draw.line(screen, (90, 90, 100), (0, HUD_HEIGHT - 1), (WIDTH, HUD_HEIGHT - 1), 2)
 
@@ -712,11 +682,10 @@ def draw_board(game):
     screen.blit(font_sm.render(help_text, True, TEXT), (520, 18))
 
     if game["hint"]:
-        hint_bg = pygame.Surface((WIDTH, 44), pygame.SRCALPHA)
+        hint_bg = pygame.Surface((WIDTH, BOTTOM_HINT_HEIGHT), pygame.SRCALPHA)
         hint_bg.fill((0, 0, 0, 100))
-        screen.blit(hint_bg, (0, SCREEN_HEIGHT - 44))
+        screen.blit(hint_bg, (0, SCREEN_HEIGHT - BOTTOM_HINT_HEIGHT))
         screen.blit(font_sm.render(game["hint"], True, WHITE), (16, SCREEN_HEIGHT - 34))
-
 
 def draw_overlay(game):
     if game["state"] == "gameover":
@@ -741,11 +710,10 @@ def draw_overlay(game):
         overlay.fill((0, 0, 0, 150))
         screen.blit(overlay, (0, 0))
         title = "튜토리얼 완료" if game["mode"] == "tutorial" else "ALL CLEAR"
-        color = BLUE if game["mode"] == "tutorial" else KEY
+        color = BLUE if game["mode"] == "tutorial" else KEY_GOLD
         draw_text_center(title, HUD_HEIGHT + 180, font_lg, color)
         draw_text_center("ENTER: 메뉴로", HUD_HEIGHT + 255, font_md, WHITE)
         draw_text_center("R: 처음부터 다시", HUD_HEIGHT + 315, font_md, WHITE)
-
 
 def draw_menu():
     screen.fill(DARK_GRAY)
@@ -754,10 +722,9 @@ def draw_menu():
     draw_text_center("2. 튜토리얼", 320, font_md, WHITE)
     draw_text_center("Q. 종료", 380, font_md, WHITE)
     draw_text_center("플레이어는 파란 네모로 표시됩니다.", 500, font_sm, WHITE)
-    draw_text_center("sprites/sheet.png 한 장만 넣으면 배경 에셋이 적용됩니다.", 540, font_sm, WHITE)
+    draw_text_center("sprites 폴더에 개별 png를 넣으면 자동 적용됩니다.", 540, font_sm, WHITE)
     draw_text_center("열쇠는 코드로 직접 그립니다.", 580, font_sm, WHITE)
     pygame.display.flip()
-
 
 def main():
     scene = "menu"
@@ -828,7 +795,6 @@ def main():
             draw_board(game)
             draw_overlay(game)
             pygame.display.flip()
-
 
 if __name__ == "__main__":
     main()
